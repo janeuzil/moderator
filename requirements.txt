@@ -1,0 +1,3 @@
+web.py
+mysql-connector==2.1.6
+ciscosparkapi
