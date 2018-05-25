@@ -175,7 +175,11 @@ def insert_room(data):
         return
 
     # Inserting new room in the database
-    room_data = (room.id, data.id, cnt[0][0], room.title, room.type)
+    if room.type == p.direct:
+        title = p.ans.room_name.format(room.title)
+    else:
+        title = room.title
+    room_data = (room.id, data.id, cnt[0][0], title, room.type)
     if not p.db.insert_room(room_data):
         msg = "ERROR: Cannot insert room in the database."
         print(msg)
@@ -666,16 +670,18 @@ def delete_faq(r, faq_id):
     # Delete generated messages to FAQ thread
     messages = p.db.select_faq_messages([faq_id])
     if not messages:
-        database_error(r.room_id, "ERROR: Cannot get the messages related to FAQ ID - {0}.".format(faq_id))
+        if messages is None:
+            database_error(r.room_id, "ERROR: Cannot get the messages related to FAQ ID - {0}.".format(faq_id))
 
-    for m in messages:
-        try:
-            p.spark.messages.delete(m[0])
-            print("INFO: Message '{0}' successfully deleted from Webex.".format(m[0]))
-        except SparkApiError as err:
-            msg = "ERROR: Cannot delete message '{0}' from Webex.\n".format(m[0]) + str(err)
-            print(msg)
-            send_message(p.admin, msg)
+    else:
+        for m in messages:
+            try:
+                p.spark.messages.delete(m[0])
+                print("INFO: Message '{0}' successfully deleted from Webex.".format(m[0]))
+            except SparkApiError as err:
+                msg = "ERROR: Cannot delete message '{0}' from Webex.\n".format(m[0]) + str(err)
+                print(msg)
+                send_message(p.admin, msg)
 
     if not p.db.delete_faq([faq_id]):
         database_error(r.room_id, "ERROR: Cannot delete FAQ thread '{0}' from the database".format(faq_id))
@@ -926,7 +932,10 @@ def delete_media(r, media_id):
 
 # Function to select all media from the database based on the room
 def select_media(r):
-    media = p.db.select_media_all(None)
+    if check_privileges(r):
+        media = p.db.select_media_all(None)
+    else:
+        media = p.db.select_media_room([r.room_id])
     if not media:
         if media is None:
             database_error(r.room_id, "ERROR: Cannot get the media from the database.")
@@ -936,7 +945,7 @@ def select_media(r):
     else:
         # Preparing message with media files
         msg = str()
-        tmp = "{0}. **{1}** - [{2}]({3})\n"
+        tmp = "{0}. **{1}** - _{2}_ - **[LINK]({3})**\n"
         i = 1
         for m in media:
             msg += tmp.format(i, m[3], m[1], m[2])
@@ -1044,6 +1053,10 @@ class Moderator(object):
 
         # Memberships event
         if webhook.resource == "memberships":
+            # Register only if the person is me and not others
+            if webhook.data.personId != p.me.id:
+                print("INFO: Event concerning somebody else, skipping.")
+                return
             if webhook.event == "created":
                 insert_room(webhook.data)
             elif webhook.event == "deleted":

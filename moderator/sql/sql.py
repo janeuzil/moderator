@@ -212,6 +212,9 @@ class Database(object):
     def select_media_all(self, data):
         return self.__query_sql(self.__select.select_media_all(), data)
 
+    def select_media_room(self, data):
+        return self.__query_sql(self.__select.select_media_room(), data)
+
     def select_joke(self, data):
         return self.__query_sql(self.__select.select_joke(), data)
 
@@ -460,8 +463,12 @@ class Database(object):
             )
             self.__media = "SELECT * FROM media WHERE media_id = %s"
             self.__media_all = (
-                    "SELECT m.media_id, m.media_text, m.media_link, u.user_name FROM media m INNER JOIN users u "
-                    "ON m.user_id = u.user_id ORDER BY m.media_id"
+                "SELECT m.media_id, m.media_text, m.media_link, u.user_name FROM media m INNER JOIN users u "
+                "ON m.user_id = u.user_id ORDER BY m.media_id"
+            )
+            self.__media_room = (
+                "SELECT m.media_id, m.media_text, m.media_link, u.user_name FROM media m INNER JOIN users u "
+                "ON m.user_id = u.user_id WHERE m.room_id = %s ORDER BY m.media_id"
             )
             self.__joke = "SELECT * FROM jokes WHERE joke_id = %s"
             self.__joke_rand = "SELECT joke_text FROM jokes WHERE joke_lang = %s ORDER BY RAND() LIMIT 1"
@@ -523,6 +530,9 @@ class Database(object):
 
         def select_media_all(self):
             return self.__media_all
+
+        def select_media_room(self):
+            return self.__media_room
 
         def select_joke(self):
             return self.__joke
